@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libXT.a CMakeFiles/XT.dir/src/xt_simulation.cxx.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libXT.a
