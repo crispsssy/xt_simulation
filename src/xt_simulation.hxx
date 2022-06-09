@@ -72,8 +72,10 @@ private:
 	std::vector<double> f_z1;
 	std::vector<double> f_t1;	
 	std::vector<double> f_ec_dis;
+	std::vector<double> f_e_cls;
 	std::vector<int> f_n_ele;
 	int f_n_cls;
+	int f_Nt;                             //Number of electrons generated in a track
 	int f_index_e;
 	double f_edep;
         double f_DriftDistance;

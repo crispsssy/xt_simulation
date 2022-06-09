@@ -15,7 +15,9 @@ simXT::simXT(int HV, int nevents, int fileId, std::string primary, double moment
 	fFile_out = new TFile(Form("root/output_%d.root",fileId), "RECREATE");
 	fTree_out = new TTree("t", "t");
 	fTree_out->Branch("n_cls", &f_n_cls);
+	fTree_out->Branch("e_cls", &f_e_cls);
 	fTree_out->Branch("ec_dis", &f_ec_dis);
+	fTree_out->Branch("Nt", &f_Nt);
 	fTree_out->Branch("n_ele", &f_n_ele);
 	fTree_out->Branch("edep", &f_edep);
 	fTree_out->Branch("index_e", &f_index_e);
@@ -46,6 +48,7 @@ void simXT::SetupGas(std::string gasFile, std::string ionMobilityFile){
 	fGas->LoadGasFile(gasFile.data());
 	fGas->LoadIonMobility(ionMobilityFile.data());
 	fGas->Initialise(true);
+	fGas->SetW(100.);
 //	fGas->PrintGas();
         std::cout<<"W value is "<<fGas->GetW()<<std::endl;
 }
@@ -106,7 +109,7 @@ void simXT::MakeTrack(int nTrack){
 	clock_t tStart = clock();
 	TrackHeed* track = new TrackHeed();    //Heed++ model
 	//TrackPAI* track = new TrackPAI();        //PAI model
-	AvalancheMC* drift = new AvalancheMC();              //Change model here to use MC or microscopic
+	AvalancheMicroscopic* drift = new AvalancheMicroscopic();              //Change model here to use MC or microscopic
 	ViewCell* cellView = new ViewCell();
 	ViewDrift* draw_drift = new ViewDrift();
 
@@ -117,6 +120,7 @@ void simXT::MakeTrack(int nTrack){
 	track->EnablePlotting(draw_drift);
 
 	track->EnableDeltaElectronTransport();       //Enable Secondary ionization
+	std::cout<<track->GetEnergy()<<std::endl;
 
 	drift->SetSensor(fSensor_e);
 	drift->EnablePlotting(draw_drift);
@@ -133,9 +137,12 @@ void simXT::MakeTrack(int nTrack){
 		double track_dz = 0.; //gRandom->Uniform(-1., 1.);
 		track->NewTrack(track_x, track_y, track_z, track_t, track_dx, track_dy, track_dz);
 
+	        std::cout<<track->GetEnergy()<<std::endl;
 		std::cout<<"Track at W value of "<<track->GetW()<<" Getting clusters..."<<std::endl;
 		//number of clusters in a track
 		int n_cls = 0;
+		//number of electrons in a track
+		int Nt = 0;
 		//cluster coordinates
 		double xc = 0., yc = 0., zc = 0., tc = 0.;
 		//number of electrons produced in a collision
@@ -151,13 +158,15 @@ void simXT::MakeTrack(int nTrack){
 			std::cout<<nc<<" electrons generated"<<std::endl;
 			if(xc<-0.8||xc>0.8||yc<-0.8||yc>0.8) continue;              //Only use clusters in center cell
 			n_cls++;
+			Nt += nc;
+			f_e_cls.push_back(ec);
 			edep += ec;
 			f_n_ele.push_back(nc);
 			double del_x, del_y, del_z, del_t;
 			double ke;
 			int i_dummy;
 			double dummy;
-			//loop over electrons in one cluster
+/*			//loop over electrons in one cluster
 			for(int j=0; j<nc; j++){
 				track->GetElectron(j, del_x, del_y, del_z, del_t, ke, dummy, dummy, dummy);
 				//get distance between every electron and the first electron in the cluster
@@ -187,15 +196,17 @@ void simXT::MakeTrack(int nTrack){
 				f_z1.push_back(z1);
 				f_t1.push_back(t1);
 				std::cout<<j<<" th electron at "<<x0<<" "<<y0<<" "<<z0<<std::endl;
-			}
+			}*/
 		}
-		//Jump to next track if all clusters are out of cell
+/*		//Jump to next track if all clusters are out of cell
 		//Case there is cluster in cell but no drift electrons f_t0.size() = 0 && f_ec_dis.size() != 0: 
 		//eletron are generated inside field wire with 0 E field
-		if(f_t0.size() == 0){ f_ec_dis.clear(); f_n_ele.clear(); continue; }
-		//save number of clusters in a track
+		if(f_t0.size() == 0){ f_ec_dis.clear(); f_e_cls.clear(); f_n_ele.clear(); continue; }
+*/		//save number of clusters in a track
 		f_n_cls = n_cls;
-		//save total energy loss
+		//
+		f_Nt = Nt;
+/*		//save total energy loss
 		f_edep = edep;
 		//Find the first electron that achieve the sense wire and calculate drift time and distance
 		int pos = std::min_element(f_t1.begin(), f_t1.end()) - f_t1.begin();
@@ -211,7 +222,7 @@ void simXT::MakeTrack(int nTrack){
 		normal = normal.Unit();
 		TVector3 pos_trk(track_x,track_y,track_z);
 		f_DOCA =  pos_trk * normal;
-
+*/
 		fTree_out->Fill();
 		f_x0.clear();
 		f_y0.clear();
@@ -223,6 +234,7 @@ void simXT::MakeTrack(int nTrack){
 		f_t1.clear();
 
 		f_ec_dis.clear();
+		f_e_cls.clear();
 		f_n_ele.clear();
 
 	}
